@@ -35,7 +35,7 @@ export const generateArticle = async (
 ): Promise<GeneratedArticle> => {
   
   const instruction = `Bạn là một biên tập viên báo chí chuyên nghiệp của Công an nhân dân. 
-  Hãy viết bài báo về chủ đề: ${topic}. 
+  Hãy viết bài báo không có tên tác giả về chủ đề: ${topic}. 
   Độ dài yêu cầu: ${length}.
   Yêu cầu đặc biệt: ${config.abbreviateVictim ? "Viết tắt tên nạn nhân." : ""} ${config.abbreviateSubject ? "Viết tắt tên đối tượng." : ""}
   Mẫu cấu trúc: ${config.customTemplate || "Theo chuẩn tin tức báo chí hiện đại."}`;
