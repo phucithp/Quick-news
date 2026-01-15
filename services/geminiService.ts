@@ -1,77 +1,100 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import { ArticleTopic, ArticleLength, ArticleConfig, GeneratedArticle } from "../types";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from '../types';
 
-const getAPIKey = (): string | null => {
-  try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const stored = window.localStorage.getItem('GEMINI_API_KEY');
-      if (stored && stored.trim() !== '') return stored.trim();
-    }
-  } catch (e) {
-    return null;
+/**
+ * TRẠM KIỂM SOÁT API KEY
+ * Lấy đạn (Key) trực tiếp từ kho lưu trữ của trình duyệt người dùng
+ */
+const getApiKey = (): string => {
+  const key = localStorage.getItem("USER_GEMINI_KEY");
+  if (!key) {
+    throw new Error("API_KEY_MISSING: Vui lòng nhập Key tại giao diện.");
   }
-  return null;
+  return key;
 };
 
-const getModel = (modelName: string, schema?: any) => {
-  const apiKey = getAPIKey();
-  if (!apiKey) throw new Error("API_KEY_MISSING");
-  const genAI = new GoogleGenerativeAI(apiKey);
+/**
+ * HÀM KHỞI TẠO INSTANCE AI
+ */
+const getModel = (instruction?: string) => {
+  const genAI = new GoogleGenerativeAI(getApiKey());
   return genAI.getGenerativeModel({
-    model: modelName,
-    generationConfig: schema ? {
-      responseMimeType: "application/json",
-      responseSchema: schema,
-    } : undefined,
+    model: "gemini-3.0-flash",
+    systemInstruction: instruction,
   });
 };
 
-export const refineBrief = async (content: string): Promise<string> => {
-  try {
-    const model = getModel("gemini-3.0-flash");
-    const prompt = `Nhiệm vụ: Chuẩn hóa dữ liệu thô báo chí. KHÔNG THÊM THÔNG TIN. 
-    Định dạng Giờ: HHhMM'. Ngày: DD/MM/YYYY (tháng 3-9 không số 0 trước).
-    Văn bản: "${content}"`;
-    
-    const result = await model.generateContent(prompt);
-    return result.response.text() || content;
-  } catch (error) {
-    return content;
-  }
-};
-
-const articleSchema = {
-  type: SchemaType.OBJECT,
-  properties: {
-    title: { type: SchemaType.STRING },
-    content: { type: SchemaType.STRING },
-    tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
-  },
-  required: ["title", "content", "tags"]
-};
-
+/**
+ * 1. CHIẾN DỊCH: TẠO BÀI BÁO MỚI
+ */
 export const generateArticle = async (
   topic: ArticleTopic,
   length: ArticleLength,
-  briefContent: string,
-  configOptions: ArticleConfig
+  brief: string,
+  config: ArticleConfig
 ): Promise<GeneratedArticle> => {
-  const model = getModel("gemini-3.0-flash", articleSchema);
-  const prompt = `Viết bài báo chủ đề ${topic}, độ dài ${length}. Dữ liệu: ${briefContent}. 
-  KHÔNG SA-PÔ. Giờ HHhMM', Ngày DD/MM/YYYY (tháng 3-9 không số 0 trước).`;
+  
+  const instruction = `Bạn là một biên tập viên báo chí chuyên nghiệp của Công an nhân dân. 
+  Hãy viết bài báo về chủ đề: ${topic}. 
+  Độ dài yêu cầu: ${length}.
+  Yêu cầu đặc biệt: ${config.abbreviateVictim ? "Viết tắt tên nạn nhân." : ""} ${config.abbreviateSubject ? "Viết tắt tên đối tượng." : ""}
+  Mẫu cấu trúc: ${config.customTemplate || "Theo chuẩn tin tức báo chí hiện đại."}`;
+
+  const model = getModel(instruction);
+  const prompt = `Dựa trên dữ liệu thô sau, hãy viết tiêu đề và nội dung bài báo: ${brief}`;
 
   const result = await model.generateContent(prompt);
-  return JSON.parse(result.response.text());
+  const response = await result.response;
+  const text = response.text();
+
+  // Tách tiêu đề và nội dung (Giả định dòng đầu là tiêu đề)
+  const lines = text.split('\n').filter(l => l.trim() !== '');
+  return {
+    title: lines[0].replace(/Title:|Tiêu đề:/g, '').trim(),
+    content: lines.slice(1).join('\n\n').trim(),
+    tags: [topic, "AnNinhTratTu", "HaiPhong"]
+  };
 };
 
+/**
+ * 2. CHIẾN DỊCH: TINH CHỈNH DỮ LIỆU THÔ (REFINE)
+ * Chuẩn hóa ngày tháng, giờ giấc và lỗi chính tả
+ */
+export const refineBrief = async (text: string): Promise<string> => {
+  const instruction = `Bạn là chuyên gia soát lỗi văn bản. 
+  Hãy chuẩn hóa định dạng thời gian thành: HHhMM' (ví dụ 08h30') và ngày tháng thành: DD/MM/YYYY. 
+  Sửa lỗi chính tả nhưng GIỮ NGUYÊN nội dung gốc.`;
+
+  const model = getModel(instruction);
+  const result = await model.generateContent(text);
+  const response = await result.response;
+  return response.text().trim();
+};
+
+/**
+ * 3. CHIẾN DỊCH: VIẾT LẠI BÀI BÁO (REWRITE)
+ */
 export const rewriteArticle = async (
-  currentArticle: GeneratedArticle,
+  article: GeneratedArticle,
   targetLength: 'equivalent' | 'longer' | 'shorter',
-  customInstruction?: string
+  customInstruction: string
 ): Promise<GeneratedArticle> => {
-  const model = getModel("gemini-3.0-flash", articleSchema);
-  const prompt = `Viết lại bài báo: ${currentArticle.title}. Yêu cầu: ${targetLength}. ${customInstruction || ""}`;
+  
+  const instruction = `Bạn là biên tập viên cao cấp. Hãy viết lại bài báo sau.
+  Yêu cầu độ dài: ${targetLength}. 
+  Yêu cầu bổ sung: ${customInstruction || "Giữ nguyên ý chính, diễn đạt mượt mà hơn."}`;
+
+  const model = getModel(instruction);
+  const prompt = `Tiêu đề cũ: ${article.title}\nNội dung cũ: ${article.content}`;
 
   const result = await model.generateContent(prompt);
-  return JSON.parse(result.response.text());
+  const response = await result.response;
+  const text = response.text();
+
+  const lines = text.split('\n').filter(l => l.trim() !== '');
+  return {
+    ...article,
+    title: lines[0].replace(/Title:|Tiêu đề:/g, '').trim(),
+    content: lines.slice(1).join('\n\n').trim()
+  };
 };
