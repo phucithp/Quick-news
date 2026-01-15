@@ -1,5 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import ApiKeyModal from './components/ApiKeyModal';
+import SettingsButton from './components/SettingsButton';
 import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from './types';
 import { generateArticle, refineBrief, rewriteArticle } from './services/geminiService';
 import { 
