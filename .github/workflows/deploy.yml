@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # Hoặc "master" tùy theo nhánh chính của thủ trưởng
+    branches: ["main"]
 
 permissions:
   contents: read
@@ -20,12 +20,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      - name: Cài đặt phụ tùng (Dependencies)
+      - name: Cài đặt phụ tùng
         run: npm install
 
-      - name: Nấu code (Build dự án)
+      - name: Nấu code (Build)
         run: npm run build
 
       - name: Thiết lập Pages
@@ -34,9 +33,8 @@ jobs:
       - name: Tải bản Build lên hệ thống
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist' # Thư mục chứa code sau khi build của Vite
+          path: './dist'
 
       - name: Triển khai lên GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-  
