@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from '../types';
-import { generateArticle, refineBrief, rewriteArticle } from './services/geminiService';
+import { generateArticle, refineBrief, rewriteArticle } from '../services/geminiService';
 import { 
   Newspaper, 
   Send, 
