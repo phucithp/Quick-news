@@ -219,28 +219,16 @@ const [tempKey, setTempKey] = useState<string>('');
     setShowRefineResults(false);
     setCustomTemplate('');
   };
-  // --- HỆ THỐNG QUẢN LÝ KEY CỦA TRUNG SĨ GEMINI ---
-  const [isKeyModalOpen, setIsKeyModalOpen] = useState<boolean>(!localStorage.getItem("USER_GEMINI_KEY"));
-
-  const handleSaveKey = () => {
-    const trimmedKey = tempKey.trim();
-    if (trimmedKey.startsWith("AIza")) {
-      localStorage.setItem("USER_GEMINI_KEY", trimmedKey);
-      setIsKeyModalOpen(false);
-      // Tải lại trang để đảm bảo các Service nhận Key mới nhất
-      window.location.reload(); 
-    } else {
-      alert("Báo cáo: Định dạng Key không chính xác. Phải bắt đầu bằng AIza!");
-    }
-  };
-
-  const handleClearKey = () => {
-    if(confirm("Thủ trưởng muốn xóa Key hiện tại và đăng xuất?")) {
-      localStorage.removeItem("USER_GEMINI_KEY");
-      window.location.reload();
-    }
-  };
-  // --- KẾT THÚC PHẦN XỬ LÝ KEY —
+const handleSaveKey = () => {
+  if (tempKey.startsWith("AIza")) {
+    localStorage.setItem("USER_GEMINI_KEY", tempKey);
+    setApiKey(tempKey);
+    setIsKeyModalOpen(false);
+    window.location.reload(); // Tải lại để các service nhận key mới
+  } else {
+    alert("Định dạng Key không đúng (phải bắt đầu bằng AIza)");
+  }
+};
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
       <header className="w-full max-w-4xl mb-6 text-center">
@@ -731,56 +719,49 @@ const [tempKey, setTempKey] = useState<string>('');
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         textarea:focus { outline: none; }
       `}</style>
-{/* LỚP PHỦ BẢO MẬT: CHỈ HIỆN KHI THIẾU KEY */}
-      {isKeyModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/95 flex items-center justify-center p-4 z-[100] backdrop-blur-md animate-in fade-in duration-500">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 border border-indigo-100 flex flex-col items-center">
-            
-            <div className="bg-amber-100 p-4 rounded-full text-amber-600 mb-6">
-              <ShieldCheck size={48} />
-            </div>
-
-            <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2 text-center">
-              Cấp quyền truy cập AI
-            </h3>
-            
-            <p className="text-slate-500 text-sm text-center mb-8 font-medium leading-relaxed">
-              Để bảo mật tài nguyên, thủ trưởng vui lòng sử dụng API Key cá nhân. Dữ liệu được lưu tại trình duyệt này.
-            </p>
-
-            <div className="w-full space-y-4 mb-8">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <p className="text-[11px] font-black text-indigo-600 uppercase mb-3 flex items-center gap-2">
-                  <Zap size={14} /> Cách lấy mã miễn phí:
-                </p>
-                <div className="space-y-2 text-[11px] text-slate-600 font-bold">
-                  <p>1. Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-600 underline">Google AI Studio</a></p>
-                  <p>2. Nhấn nút "Create API key"</p>
-                  <p>3. Copy mã có dạng "AIzaSy..." dán vào dưới đây</p>
-                </div>
-              </div>
-
-              <input 
-                type="password" 
-                value={tempKey}
-                onChange={(e) => setTempKey(e.target.value)}
-                placeholder="Dán API Key của thủ trưởng..."
-                className="w-full p-4 bg-slate-100 border-2 border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50 focus:outline-none transition-all font-mono text-center"
-              />
-            </div>
-
-            <button 
-              onClick={handleSaveKey}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 transition-all active:scale-95"
-            >
-              Kích hoạt hệ thống
-            </button>
-          </div>
+{/* Modal nhập API Key - Phục vụ tác chiến bảo mật */}
+{isKeyModalOpen && (
+  <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center p-4 z-[100] backdrop-blur-xl">
+    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 border border-indigo-100">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="bg-amber-500 p-2 rounded-xl text-white">
+          <ShieldCheck size={24} />
         </div>
-      )}
+        <h3 className="text-xl font-black text-slate-800 uppercase">Cấp quyền truy cập AI</h3>
+      </div>
+      
+      <p className="text-sm text-slate-600 mb-6 leading-relaxed font-medium">
+        Để đảm bảo an toàn, thủ trưởng vui lòng sử dụng API Key cá nhân. Dữ liệu này được lưu tại trình duyệt của thủ trưởng, không gửi về máy chủ.
+      </p>
+
+      <div className="bg-indigo-50 p-4 rounded-2xl mb-6 border border-indigo-100">
+        <p className="text-[11px] font-bold text-indigo-700 uppercase mb-2">Hướng dẫn lấy mã miễn phí:</p>
+        <ol className="text-[11px] text-indigo-600 space-y-1 font-medium">
+          <li>1. Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-black">Google AI Studio</a></li>
+          <li>2. Chọn "Create API key"</li>
+          <li>3. Copy mã dán vào ô dưới đây</li>
+        </ol>
+      </div>
+
+      <input 
+        type="password" 
+        value={tempKey}
+        onChange={(e) => setTempKey(e.target.value)}
+        placeholder="Dán mã AIza... tại đây"
+        className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl mb-6 focus:border-indigo-500 outline-none font-mono text-sm"
+      />
+
+      <button 
+        onClick={handleSaveKey}
+        className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+      >
+        Xác nhận & Khởi tạo
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };
 
 export default App;
-
