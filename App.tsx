@@ -713,6 +713,7 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         textarea:focus { outline: none; }
       `}</style>
+<ApiKeyModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };
