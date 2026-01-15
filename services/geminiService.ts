@@ -1,9 +1,24 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ArticleTopic, ArticleLength, ArticleConfig, GeneratedArticle } from "../types";
 
+const getAPIKey = (): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = window.localStorage.getItem('GEMINI_API_KEY');
+      if (stored && stored.trim() !== '') return stored.trim();
+    }
+  } catch (e) {
+    // ignore localStorage errors
+  }
+
+  // fallback to env injected at build time (if any)
+  // keep supporting process.env.API_KEY for backwards compatibility
+  // @ts-ignore
+  return (process && (process.env?.API_KEY || process.env?.GEMINI_API_KEY)) || null;
+};
+
 const getAIInstance = () => {
-  const apiKey = process.env.API_KEY;
+  const apiKey = getAPIKey();
   if (!apiKey) throw new Error("API_KEY_MISSING");
   return new GoogleGenAI({ apiKey });
 };
@@ -24,7 +39,7 @@ export const refineBrief = async (content: string): Promise<string> => {
        - Định dạng chung: DD/MM/YYYY.
        - RIÊNG các tháng từ tháng 3 đến tháng 9: KHÔNG được có số 0 ở trước (Ví dụ: 20/3/2026, 15/9/2026).
        - Các tháng 1, 2, 10, 11, 12 giữ nguyên số 0 nếu cần (Ví dụ: 05/01/2026, 31/12/2025).
-    
+      
     Văn bản cần xử lý: "${content}"
   `;
 
