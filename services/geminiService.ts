@@ -3,7 +3,7 @@ import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from '..
 
 /**
  * TRẠM KIỂM SOÁT API KEY
- * Lấy đạn (Key) trực tiếp từ kho lưu trữ của trình duyệt người dùng
+ * Lấy đạn (Key) trực tiếp từ kho lưu trữ của trình duyệt
  */
 const getApiKey = (): string => {
   const key = localStorage.getItem("USER_GEMINI_KEY");
@@ -15,17 +15,19 @@ const getApiKey = (): string => {
 
 /**
  * HÀM KHỞI TẠO INSTANCE AI
+ * Đã điều chỉnh về model gemini-1.5-flash ổn định nhất
  */
 const getModel = (instruction?: string) => {
   const genAI = new GoogleGenerativeAI(getApiKey());
   return genAI.getGenerativeModel({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3-flash-preview", 
     systemInstruction: instruction,
   });
 };
 
 /**
  * 1. CHIẾN DỊCH: TẠO BÀI BÁO MỚI
+ * Đã thiết lập Prompt chuyên biệt cho Hội nghị và Vụ việc
  */
 export const generateArticle = async (
   topic: ArticleTopic,
@@ -34,36 +36,52 @@ export const generateArticle = async (
   config: ArticleConfig
 ): Promise<GeneratedArticle> => {
   
-  const instruction = `Bạn là một biên tập viên báo chí chuyên nghiệp của Công an nhân dân. 
-  Hãy viết bài báo không có tên tác giả về chủ đề: ${topic}. 
-  Độ dài yêu cầu: ${length}.
-  Yêu cầu đặc biệt: ${config.abbreviateVictim ? "Viết tắt tên nạn nhân." : ""} ${config.abbreviateSubject ? "Viết tắt tên đối tượng." : ""}
-  Mẫu cấu trúc: ${config.customTemplate || "Theo chuẩn tin tức báo chí hiện đại."}`;
+  const instruction = `Bạn là biên tập viên báo chí chuyên nghiệp của lực lượng Công an nhân dân. 
+  NHIỆM VỤ NGHIÊM NGẶT:
+  - KHÔNG có tên tác giả ở cuối bài.
+  - KHÔNG viết đoạn Sa-pô (vào thẳng nội dung sau tiêu đề).
+  - Tên nạn nhân/đối tượng: ${config.abbreviateVictim ? "PHẢI viết tắt tên nạn nhân." : ""} ${config.abbreviateSubject ? "PHẢI viết tắt tên đối tượng." : ""}
+  
+  CẤU TRÚC BẮT BUỘC THEO CHỦ ĐỀ:
+  
+  1. Nếu là chủ đề "Hội nghị" hoặc "Hoạt động":
+     - Tiêu đề: Định dạng [Tên đơn vị] + [Tên hoạt động/Hội nghị].
+     - Nội dung: Viết theo trình tự: Thời gian, địa điểm -> Thành phần tham dự -> Nội dung chi tiết -> Kết quả -> Ý kiến chỉ đạo của lãnh đạo (nếu có) -> Khen thưởng (nếu có).
+  
+  2. Nếu là chủ đề "Vụ việc":
+     - Tiêu đề: Định dạng "Thông tin về vụ việc [Tên vụ việc]...".
+     - Nội dung: Viết theo dòng thời gian (Timeline) từ lúc bắt đầu xảy ra đến khi kết thúc xử lý.
+
+  Yêu cầu về độ dài: ${length}.
+  Mẫu bổ sung: ${config.customTemplate || "Phong cách trang trọng, chính xác."}`;
 
   const model = getModel(instruction);
-  const prompt = `Dựa trên dữ liệu thô sau, hãy viết tiêu đề và nội dung bài báo: ${brief}`;
+  const prompt = `Dựa trên dữ liệu thô sau, hãy viết tiêu đề và nội dung bài báo hoàn chỉnh: ${brief}`;
 
   const result = await model.generateContent(prompt);
   const response = await result.response;
   const text = response.text();
 
-  // Tách tiêu đề và nội dung (Giả định dòng đầu là tiêu đề)
   const lines = text.split('\n').filter(l => l.trim() !== '');
+  // Dòng đầu tiên làm tiêu đề, các dòng còn lại là nội dung
+  const title = lines[0].replace(/Title:|Tiêu đề:|\*/g, '').trim();
+  const content = lines.slice(1).join('\n\n').trim();
+
   return {
-    title: lines[0].replace(/Title:|Tiêu đề:/g, '').trim(),
-    content: lines.slice(1).join('\n\n').trim(),
-    tags: [topic, "AnNinhTratTu", "HaiPhong"]
+    title,
+    content,
+    tags: [topic, "AnNinhTratTu", "CongAnNhanDan"]
   };
 };
 
 /**
  * 2. CHIẾN DỊCH: TINH CHỈNH DỮ LIỆU THÔ (REFINE)
- * Chuẩn hóa ngày tháng, giờ giấc và lỗi chính tả
  */
 export const refineBrief = async (text: string): Promise<string> => {
-  const instruction = `Bạn là chuyên gia soát lỗi văn bản. 
-  Hãy chuẩn hóa định dạng thời gian thành: HHhMM' (ví dụ 08h30') và ngày tháng thành: DD/MM/YYYY. 
-  Sửa lỗi chính tả nhưng GIỮ NGUYÊN nội dung gốc.`;
+  const instruction = `Bạn là chuyên gia soát lỗi văn bản nghiệp vụ. 
+  - Chuẩn hóa thời gian: HHhMM' (VD: 07h30').
+  - Chuẩn hóa ngày tháng: DD/MM/YYYY.
+  - Sửa lỗi chính tả, giữ nguyên tình tiết vụ việc.`;
 
   const model = getModel(instruction);
   const result = await model.generateContent(text);
@@ -80,9 +98,9 @@ export const rewriteArticle = async (
   customInstruction: string
 ): Promise<GeneratedArticle> => {
   
-  const instruction = `Bạn là biên tập viên cao cấp. Hãy viết lại bài báo sau.
-  Yêu cầu độ dài: ${targetLength}. 
-  Yêu cầu bổ sung: ${customInstruction || "Giữ nguyên ý chính, diễn đạt mượt mà hơn."}`;
+  const instruction = `Bạn là biên tập viên cao cấp. Hãy viết lại bài báo nhưng giữ đúng quy tắc: 
+  KHÔNG sa-pô, KHÔNG tên tác giả, giữ đúng cấu trúc tiêu đề và nội dung theo dòng thời gian hoặc trình tự hội nghị.
+  Độ dài mới: ${targetLength}. Bổ sung: ${customInstruction}`;
 
   const model = getModel(instruction);
   const prompt = `Tiêu đề cũ: ${article.title}\nNội dung cũ: ${article.content}`;
@@ -94,7 +112,7 @@ export const rewriteArticle = async (
   const lines = text.split('\n').filter(l => l.trim() !== '');
   return {
     ...article,
-    title: lines[0].replace(/Title:|Tiêu đề:/g, '').trim(),
+    title: lines[0].replace(/Title:|Tiêu đề:|\*/g, '').trim(),
     content: lines.slice(1).join('\n\n').trim()
   };
 };
