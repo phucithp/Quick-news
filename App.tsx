@@ -1,114 +1,92 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import ApiKeyModal from './components/ApiKeyModal';
-import SettingsButton from './components/SettingsButton';
-import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from './types';
-import { generateArticle, refineBrief, rewriteArticle } from './services/geminiService';
+import React, { useState, useEffect } from 'react';
 import { 
-  Newspaper, Send, Loader2, Copy, Check, RefreshCcw, Layout, FileText, AlertCircle,
-  Plus, Trash2, X, Sparkles, Settings2, Wand2, Edit3, History
+  Newspaper, Send, Loader2, Copy, Check, RefreshCcw, FileText, 
+  Sparkles, Settings2, Wand2, History 
 } from 'lucide-react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-function App() {
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [apiKey, setApiKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
+// --- 1. SETTINGS BUTTON COMPONENT (NHÚNG TRỰC TIẾP) ---
+const SettingsButton = ({ onClick }: { onClick: () => void }) => (
+  <button onClick={onClick} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, display: 'inline-flex', alignItems: 'center', color: '#374151' }}>
+    <Settings2 size={24} />
+  </button>
+);
 
-  // Kiểm tra key ngay khi hành quân (vào app)
-  useEffect(() => {
-    if (!apiKey) {
-      setIsApiKeyModalOpen(true);
-    }
-  }, [apiKey]);
+// --- 2. API KEY MODAL COMPONENT (NHÚNG TRỰC TIẾP) ---
+const ApiKeyModal = ({ open, onClose }: { open: boolean, onClose: () => void }) => {
+  const [key, setKey] = useState(localStorage.getItem('GEMINI_API_KEY') || '');
+  if (!open) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', zIndex: 9999 }}>
+      <div style={{ width: 400, background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+        <h3 style={{ marginBottom: 8, fontWeight: 'bold' }}>Cài đặt API Key</h3>
+        <p style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>Lấy key tại Google AI Studio</p>
+        <input 
+          type="password" value={key} onChange={(e) => setKey(e.target.value)}
+          placeholder="Dán AIza... vào đây"
+          style={{ width: '100%', padding: '10px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16 }}
+        />
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 16px', background: '#f1f5f9', borderRadius: 8, border: 'none' }}>Đóng</button>
+          <button onClick={() => { localStorage.setItem('GEMINI_API_KEY', key); onClose(); }} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 8, border: 'none' }}>Lưu lại</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
-  // Các Logic State khác của thủ trưởng giữ nguyên...
-  const [topic, setTopic] = useState<ArticleTopic>(ArticleTopic.INCIDENT);
-  const [length, setLength] = useState<ArticleLength>(ArticleLength.MEDIUM);
-  const [briefContent, setBriefContent] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedArticle, setGeneratedArticle] = useState<GeneratedArticle | null>(null);
+// --- 3. MAIN APP ---
+export default function App() {
+  const [isModalOpen, setIsModalOpen] = useState(!localStorage.getItem('GEMINI_API_KEY'));
+  const [input, setInput] = useState('');
+  const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleGenerate = async () => {
-    if (!briefContent.trim()) return;
-    setIsGenerating(true);
+  const handleAI = async () => {
+    const key = localStorage.getItem('GEMINI_API_KEY');
+    if (!key) return setIsModalOpen(true);
+    setLoading(true);
     try {
-      const result = await generateArticle(topic, length, briefContent, { abbreviateVictim: false, abbreviateSubject: false });
-      setGeneratedArticle(result);
-    } catch (error) {
-      if (error instanceof Error && error.message === "API_KEY_MISSING") {
-        setIsApiKeyModalOpen(true);
-      } else {
-        alert("Có lỗi xảy ra, thưa thủ trưởng!");
-      }
+      const genAI = new GoogleGenerativeAI(key);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `Viết lại bản tin sau cho chuyên nghiệp, chuẩn hóa giờ HHhMM', ngày DD/MM/YYYY: ${input}`;
+      const res = await model.generateContent(prompt);
+      setResult(res.response.text());
+    } catch (e) {
+      alert("Lỗi AI hoặc Key không đúng, thưa thủ trưởng!");
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <ApiKeyModal 
-        open={isApiKeyModalOpen} 
-        onClose={() => {
-          setIsApiKeyModalOpen(false);
-          setApiKey(localStorage.getItem('GEMINI_API_KEY') || '');
-        }} 
-      />
-      
-      {/* Header */}
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-lg">
-              <Newspaper className="text-white" size={20} />
-            </div>
-            <span className="font-bold text-xl tracking-tight">QUICK NEWS</span>
-          </div>
-          <SettingsButton onClick={() => setIsApiKeyModalOpen(true)} />
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+      <ApiKeyModal open={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <nav style={{ background: '#fff', padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 'bold' }}>
+          <Newspaper color="#2563eb" /> QUICK NEWS
         </div>
+        <SettingsButton onClick={() => setIsModalOpen(true)} />
       </nav>
-
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Cột Trái: Nhập liệu */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <label className="block text-sm font-semibold mb-2">Dữ liệu thô</label>
-              <textarea 
-                className="w-100 w-full h-64 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                placeholder="Dán nội dung vào đây..."
-                value={briefContent}
-                onChange={(e) => setBriefContent(e.target.value)}
-              />
-              <button 
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-              >
-                {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles size={18} />}
-                XỬ LÝ TIN NHANH
-              </button>
-            </div>
-          </div>
-
-          {/* Cột Phải: Kết quả */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 min-h-[500px]">
-            {generatedArticle ? (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-slate-800">{generatedArticle.title}</h2>
-                <div className="prose max-w-none text-slate-600 leading-relaxed">
-                  {generatedArticle.content}
-                </div>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <FileText size={48} strokeWidth={1} />
-                <p className="mt-2">Chưa có bản tin nào được tạo</p>
-              </div>
-            )}
-          </div>
+      <main style={{ maxWidth: 1000, margin: '40px auto', padding: '0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+        <div style={{ background: '#fff', padding: 24, borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <h4 style={{ marginBottom: 12 }}>Dữ liệu thô</h4>
+          <textarea 
+            style={{ width: '100%', height: 300, padding: 12, borderRadius: 8, border: '1px solid #e2e8f0', resize: 'none' }}
+            value={input} onChange={(e) => setInput(e.target.value)}
+          />
+          <button 
+            onClick={handleAI} disabled={loading}
+            style={{ width: '100%', marginTop: 16, padding: 14, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            {loading ? "ĐANG XỬ LÝ..." : "XỬ LÝ TIN NHANH"}
+          </button>
+        </div>
+        <div style={{ background: '#fff', padding: 24, borderRadius: 16, border: '1px solid #e2e8f0' }}>
+          <h4 style={{ marginBottom: 12 }}>Kết quả</h4>
+          <div style={{ whiteSpace: 'pre-wrap', color: '#334155' }}>{result || "Đợi lệnh từ thủ trưởng..."}</div>
         </div>
       </main>
     </div>
   );
 }
-
-export default App;
