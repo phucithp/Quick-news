@@ -1,5 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import ApiKeyModal from './components/ApiKeyModal';
+import SettingsButton from './components/SettingsButton';
 import { ArticleTopic, ArticleLength, GeneratedArticle, ArticleConfig } from './types';
 import { generateArticle, refineBrief, rewriteArticle } from './services/geminiService';
 import { 
@@ -221,6 +223,9 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
       <header className="w-full max-w-4xl mb-6 text-center">
+        <div style={{ position: 'absolute', top: 12, right: 12 }}>
+  <SettingsButton onClick={() => setShowSettings(true)} />
+</div>
         <div className="flex items-center justify-center gap-3 mb-4">
           <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100">
             <Newspaper size={32} />
@@ -708,6 +713,7 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         textarea:focus { outline: none; }
       `}</style>
+<ApiKeyModal open={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };
