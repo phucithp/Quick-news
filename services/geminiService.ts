@@ -80,8 +80,8 @@ export const generateArticle = async (
 export const refineBrief = async (text: string): Promise<string> => {
   const instruction = `Bạn là chuyên gia soát lỗi văn bản nghiệp vụ. 
   - Chuẩn hóa thời gian: HHhMM' (VD: 07h30').
-  - Chuẩn hóa ngày tháng: DD/MM/YYYY. Lưu ý các tháng từ 3 - 9 không có số "0" ở trước.
-  - Sửa lỗi chính tả, giữ nguyên tình tiết vụ việc.`;
+  - Chuẩn hóa ngày tháng: DD/MM/YYYY. ĐẶC BIỆT LƯU Ý các tháng từ 3 - 9 không có số "0".
+  - Sửa lỗi chính tả, viết rõ các từ viết tắt, giữ nguyên tình tiết vụ việc.`;
 
   const model = getModel(instruction);
   const result = await model.generateContent(text);
