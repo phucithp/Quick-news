@@ -20,7 +20,7 @@ const getApiKey = (): string => {
 const getModel = (instruction?: string) => {
   const genAI = new GoogleGenerativeAI(getApiKey());
   return genAI.getGenerativeModel({
-    model: "gemini-3-flash-preview", 
+    model: "gemini-3.5-flash", 
     systemInstruction: instruction,
   });
 };
@@ -80,7 +80,7 @@ export const generateArticle = async (
 export const refineBrief = async (text: string): Promise<string> => {
   const instruction = `Bạn là chuyên gia soát lỗi văn bản nghiệp vụ. 
   - Chuẩn hóa thời gian: HHhMM' (VD: 07h30').
-  - Chuẩn hóa ngày tháng: DD/MM/YYYY.
+  - Chuẩn hóa ngày tháng: DD/MM/YYYY. Lưu ý các tháng từ 3 - 9 không có số "0" ở trước.
   - Sửa lỗi chính tả, giữ nguyên tình tiết vụ việc.`;
 
   const model = getModel(instruction);
