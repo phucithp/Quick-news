@@ -20,7 +20,7 @@ const getApiKey = (): string => {
 const getModel = (instruction?: string) => {
   const genAI = new GoogleGenerativeAI(getApiKey());
   return genAI.getGenerativeModel({
-    model: "gemini-3-flash-preview", 
+    model: "gemini-3.5-flash", 
     systemInstruction: instruction,
   });
 };
